@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Melaka Experience Bingo</title>
+  <title>Melaka Experience Bingo - Team Edition</title>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #f5f0eb; margin: 0; padding: 16px; color: #333; }
-    h1 { text-align: center; color: #8b0000; margin-bottom: 5px; font-size: 24px; }
+    h1 { text-align: center; color: #8b0000; margin-bottom: 5px; font-size: 24px; text-transform: uppercase; }
     p.subtitle { text-align: center; color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px; }
     
     .bingo-grid {
@@ -33,36 +33,28 @@
       position: relative;
       box-shadow: 0 3px 6px rgba(0,0,0,0.1);
       transition: transform 0.2s, border-color 0.2s;
+      overflow: hidden;
     }
 
     .bingo-card:hover { transform: translateY(-2px); }
-    .bingo-card.completed { border-color: #2e7d32; background-color: #e8f5e9; }
+    .bingo-card.completed { padding: 0; border: 3px solid #2e7d32; }
     
-    .bingo-card h3 { font-size: 11px; margin: 6px 0 0 0; font-weight: 600; line-height: 1.2; }
-    .type-tag { font-size: 9px; text-transform: uppercase; background: #eee; padding: 2px 5px; border-radius: 4px; color: #555; }
+    .bingo-card h3 { font-size: 11px; margin: 6px 0 0 0; font-weight: 600; line-height: 1.2; z-index: 2; }
+    .type-tag { font-size: 9px; text-transform: uppercase; background: #eee; padding: 2px 5px; border-radius: 4px; color: #555; z-index: 2; }
     
-    .status-badge {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      font-size: 14px;
-      display: none;
-    }
-    .bingo-card.completed .status-badge { display: block; }
-
-    .photo-thumb {
+    .photo-thumb-full {
       width: 100%;
-      height: 50%;
+      height: 100%;
       object-fit: cover;
-      border-radius: 6px;
-      margin-top: 4px;
+      position: absolute;
+      top: 0; left: 0;
     }
 
     /* Modal Styling */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.7);
       display: none;
       align-items: center;
       justify-content: center;
@@ -77,11 +69,10 @@
       max-width: 400px;
       width: 100%;
       text-align: center;
-      position: relative;
     }
 
     .modal h2 { margin-top: 0; color: #8b0000; }
-    .modal p { color: #555; font-size: 14px; line-height: 1.4; }
+    .modal p { color: #555; font-size: 16px; line-height: 1.4; }
     
     .btn {
       display: inline-block;
@@ -102,33 +93,54 @@
     .btn-gps { background: #1976d2; }
     
     input[type="file"] { display: none; }
+
+    /* Admin Panel */
+    .admin-panel {
+      margin-top: 40px;
+      padding: 20px;
+      background: #e0e0e0;
+      border-radius: 8px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .admin-links { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .admin-links a { background: white; padding: 10px; border-radius: 4px; font-size: 12px; word-break: break-all; color: #1976d2; text-decoration: none; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
 
-  <h1>MELAKA BINGO</h1>
-  <p class="subtitle">Tap a tile for hints/GPS. Take a photo to mark as completed!</p>
+  <h1 id="team-title">MELAKA BINGO</h1>
+  <p class="subtitle">Progress saves automatically to this phone!</p>
 
   <div class="bingo-grid" id="grid"></div>
 
-  <!-- Modal for Flip Card details -->
+  <!-- Modal -->
   <div class="modal-overlay" id="modal">
     <div class="modal">
       <span class="type-tag" id="modal-type">Type</span>
       <h2 id="modal-title">Item Name</h2>
-      <p><strong>💡 Hint:</strong> <span id="modal-hint">Hint details...</span></p>
+      <p id="modal-hint">Hint details...</p>
       
       <a id="modal-gps" class="btn btn-gps" target="_blank">📍 Open in Google Maps</a>
       
-      <button class="btn" onclick="triggerCamera()">📸 Take Photo to Verify</button>
+      <button class="btn" id="photo-btn" onclick="triggerCamera()">📸 Take Photo to Complete</button>
       <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
 
       <button class="btn btn-secondary" onclick="closeModal()">Close</button>
     </div>
   </div>
 
+  <!-- Admin Panel -->
+  <div class="admin-panel">
+    <h3>Admin: Generate Team Links</h3>
+    <p style="font-size: 12px;">Generate 10 unique shuffled boards. Copy and send these links to your teams.</p>
+    <button class="btn btn-secondary" onclick="generateTeamLinks()">Generate Shuffled Links</button>
+    <div class="admin-links" id="admin-links-container"></div>
+  </div>
+
   <script>
-    const items = [
+    const baseItems = [
       { id: 1, name: "Klebang Coconut Shake", type: "Food", hint: "Look for the long queue near Klebang Beach! Cool, refreshing blend topped with vanilla ice cream.", lat: 2.2173, lng: 102.2023 },
       { id: 2, name: "Stadthuys", type: "Sight", hint: "The iconic bright terracotta-red building built by the Dutch in 1650 in Red Square.", lat: 2.1942, lng: 102.2486 },
       { id: 3, name: "Nyonya Laksa", type: "Food", hint: "Rich coconut curry noodle soup topped with fresh prawns, fish cakes, and hard-boiled egg.", lat: 2.1970, lng: 102.2450 },
@@ -147,34 +159,78 @@
       { id: 16, name: "Gula Melaka Cendol", type: "Food", hint: "Shaved ice loaded with pandan jelly, coconut milk, and dark smoky palm sugar syrup.", lat: 2.1962, lng: 102.2470 }
     ];
 
+    let activeItems = [];
     let activeItemId = null;
-    const completedItems = {};
+    let completedItems = {};
+    let teamName = "Team 1";
+
+    // Setup Board Based on URL Parameters
+    function initializeApp() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const layout = urlParams.get('layout');
+      const team = urlParams.get('team');
+      
+      if (team) {
+        teamName = `Team ${team}`;
+        document.getElementById('team-title').innerText = `${teamName.toUpperCase()} BINGO`;
+      }
+
+      if (layout) {
+        // Build array based on URL sequence
+        const order = layout.split(',').map(Number);
+        activeItems = order.map(id => baseItems.find(item => item.id === id));
+      } else {
+        // Default sequential layout
+        activeItems = [...baseItems];
+      }
+
+      // Load saved progress from local storage
+      const savedData = localStorage.getItem(`melaka_bingo_${teamName}`);
+      if (savedData) {
+        completedItems = JSON.parse(savedData);
+      }
+
+      renderGrid();
+    }
 
     function renderGrid() {
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
 
-      items.forEach(item => {
+      activeItems.forEach(item => {
         const isCompleted = !!completedItems[item.id];
         const card = document.createElement('div');
         card.className = `bingo-card ${isCompleted ? 'completed' : ''}`;
-        card.onclick = () => openModal(item);
+        card.onclick = () => openModal(item, isCompleted);
 
-        card.innerHTML = `
-          <span class="status-badge">✅</span>
-          <span class="type-tag">${item.type}</span>
-          <h3>${item.name}</h3>
-          ${isCompleted ? `<img src="${completedItems[item.id]}" class="photo-thumb"/>` : ''}
-        `;
+        if (isCompleted) {
+          // FRONT OF CARD: PHOTO ONLY
+          card.innerHTML = `<img src="${completedItems[item.id]}" class="photo-thumb-full"/>`;
+        } else {
+          // FRONT OF CARD: TEXT & HINT
+          card.innerHTML = `
+            <span class="type-tag">${item.type}</span>
+            <h3>${item.name}</h3>
+          `;
+        }
         grid.appendChild(card);
       });
     }
 
-    function openModal(item) {
+    function openModal(item, isCompleted) {
       activeItemId = item.id;
       document.getElementById('modal-title').innerText = item.name;
       document.getElementById('modal-type').innerText = item.type;
-      document.getElementById('modal-hint').innerText = item.hint;
+      
+      if (isCompleted) {
+        // MODAL UPDATE: Changed hint text
+        document.getElementById('modal-hint').innerHTML = `<strong>Completed!</strong><br><br>"${item.type}" ${item.name}`;
+        document.getElementById('photo-btn').innerText = "📸 Retake Photo";
+      } else {
+        document.getElementById('modal-hint').innerHTML = `<strong>💡 Hint:</strong> ${item.hint}`;
+        document.getElementById('photo-btn').innerText = "📸 Take Photo to Complete";
+      }
+
       document.getElementById('modal-gps').href = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
       document.getElementById('modal').style.display = 'flex';
     }
@@ -187,20 +243,66 @@
       document.getElementById('cameraInput').click();
     }
 
+    // Compresses image to prevent phone browser from crashing when saving
     function handlePhoto(event) {
       const file = event.target.files[0];
-      if (file && activeItemId) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          completedItems[activeItemId] = e.target.result;
+      if (!file || !activeItemId) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 500;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Save compressed image data
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          completedItems[activeItemId] = compressedDataUrl;
+          
+          // Save to phone storage
+          localStorage.setItem(`melaka_bingo_${teamName}`, JSON.stringify(completedItems));
+          
           renderGrid();
           closeModal();
-        };
-        reader.readAsDataURL(file);
+        }
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ADMIN FUNCTION: Generates 10 URLs with randomized boards
+    function generateTeamLinks() {
+      const container = document.getElementById('admin-links-container');
+      container.innerHTML = '';
+      
+      const baseUrl = window.location.href.split('?')[0]; // get pure link without current params
+
+      for (let i = 1; i <= 10; i++) {
+        // Shuffle an array of IDs
+        let ids = baseItems.map(item => item.id);
+        for (let j = ids.length - 1; j > 0; j--) {
+          const k = Math.floor(Math.random() * (j + 1));
+          [ids[j], ids[k]] = [ids[k], ids[j]];
+        }
+        
+        const teamUrl = `${baseUrl}?team=${i}&layout=${ids.join(',')}`;
+        
+        container.innerHTML += `
+          <a href="${teamUrl}" target="_blank">
+            <strong>Team ${i}:</strong><br>${teamUrl}
+          </a>
+        `;
       }
     }
 
-    renderGrid();
+    // Run on load
+    initializeApp();
   </script>
 </body>
 </html>
