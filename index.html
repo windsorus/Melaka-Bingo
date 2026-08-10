@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Melaka Experience Bingo - Team Edition</title>
+  <title>Melaka Experience Bingo - Live Edition</title>
+  
+  <!-- Firebase Compat Libraries (Easy Setup for HTML files) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background-color: #f5f0eb; margin: 0; padding: 16px; color: #333; }
@@ -36,9 +41,7 @@
       overflow: hidden;
     }
 
-    .bingo-card:hover { transform: translateY(-2px); }
     .bingo-card.completed { padding: 0; border: 3px solid #2e7d32; }
-    
     .bingo-card h3 { font-size: 11px; margin: 6px 0 0 0; font-weight: 600; line-height: 1.2; z-index: 2; }
     .type-tag { font-size: 9px; text-transform: uppercase; background: #eee; padding: 2px 5px; border-radius: 4px; color: #555; z-index: 2; }
     
@@ -88,15 +91,17 @@
       font-size: 14px;
       text-decoration: none;
     }
-
     .btn-secondary { background: #555; }
     .btn-gps { background: #1976d2; }
-    
     input[type="file"] { display: none; }
 
     /* Admin Panel */
+    .admin-trigger { text-align: center; margin-top: 40px; }
+    .admin-trigger button { background: transparent; border: none; color: #aaa; cursor: pointer; text-decoration: underline; }
+    
     .admin-panel {
-      margin-top: 40px;
+      display: none;
+      margin-top: 20px;
       padding: 20px;
       background: #e0e0e0;
       border-radius: 8px;
@@ -111,7 +116,7 @@
 <body>
 
   <h1 id="team-title">MELAKA BINGO</h1>
-  <p class="subtitle">Progress saves automatically to this phone!</p>
+  <p class="subtitle" id="sync-status">Connecting to Live Server...</p>
 
   <div class="bingo-grid" id="grid"></div>
 
@@ -131,15 +136,35 @@
     </div>
   </div>
 
-  <!-- Admin Panel -->
-  <div class="admin-panel">
+  <!-- Admin Login & Panel -->
+  <div class="admin-trigger">
+    <button onclick="promptAdmin()">Admin Access</button>
+  </div>
+  <div class="admin-panel" id="admin-panel">
     <h3>Admin: Generate Team Links</h3>
-    <p style="font-size: 12px;">Generate 10 unique shuffled boards. Copy and send these links to your teams.</p>
     <button class="btn btn-secondary" onclick="generateTeamLinks()">Generate Shuffled Links</button>
     <div class="admin-links" id="admin-links-container"></div>
   </div>
 
   <script>
+    // =========================================================================
+    // ⚠️ PASTE YOUR FIREBASE CONFIG HERE ⚠️
+    // Replace the details inside this bracket with the code Firebase gave you
+    // =========================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCMMoK-OyrpH3Byu_fthdK7MivGkgcIKVQ",
+  authDomain: "melaka-bingo.firebaseapp.com",
+  projectId: "melaka-bingo",
+  storageBucket: "melaka-bingo.firebasestorage.app",
+  messagingSenderId: "664309737467",
+  appId: "1:664309737467:web:c99c34ba0dd9eff7f64d5e",
+  measurementId: "G-NQWV2D1K7G"
+};
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     const baseItems = [
       { id: 1, name: "Klebang Coconut Shake", type: "Food", hint: "Look for the long queue near Klebang Beach! Cool, refreshing blend topped with vanilla ice cream.", lat: 2.2173, lng: 102.2023 },
       { id: 2, name: "Stadthuys", type: "Sight", hint: "The iconic bright terracotta-red building built by the Dutch in 1650 in Red Square.", lat: 2.1942, lng: 102.2486 },
@@ -162,35 +187,41 @@
     let activeItems = [];
     let activeItemId = null;
     let completedItems = {};
-    let teamName = "Team 1";
+    let teamName = "lobby";
 
-    // Setup Board Based on URL Parameters
     function initializeApp() {
       const urlParams = new URLSearchParams(window.location.search);
       const layout = urlParams.get('layout');
       const team = urlParams.get('team');
       
       if (team) {
-        teamName = `Team ${team}`;
-        document.getElementById('team-title').innerText = `${teamName.toUpperCase()} BINGO`;
+        teamName = `team_${team}`;
+        document.getElementById('team-title').innerText = `TEAM ${team} BINGO`;
+      } else {
+        document.getElementById('team-title').innerText = `LOBBY BINGO`;
       }
 
       if (layout) {
-        // Build array based on URL sequence
         const order = layout.split(',').map(Number);
         activeItems = order.map(id => baseItems.find(item => item.id === id));
       } else {
-        // Default sequential layout
         activeItems = [...baseItems];
       }
 
-      // Load saved progress from local storage
-      const savedData = localStorage.getItem(`melaka_bingo_${teamName}`);
-      if (savedData) {
-        completedItems = JSON.parse(savedData);
-      }
-
-      renderGrid();
+      // Live Sync: Listen to Firebase for updates
+      const teamRef = db.ref('bingo_progress/' + teamName);
+      teamRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          completedItems = data;
+        }
+        document.getElementById('sync-status').innerText = "🟢 Live Sync Active";
+        document.getElementById('sync-status').style.color = "#2e7d32";
+        renderGrid();
+      }, (error) => {
+        document.getElementById('sync-status').innerText = "🔴 Database Error (Check Rules)";
+        document.getElementById('sync-status').style.color = "red";
+      });
     }
 
     function renderGrid() {
@@ -204,14 +235,9 @@
         card.onclick = () => openModal(item, isCompleted);
 
         if (isCompleted) {
-          // FRONT OF CARD: PHOTO ONLY
           card.innerHTML = `<img src="${completedItems[item.id]}" class="photo-thumb-full"/>`;
         } else {
-          // FRONT OF CARD: TEXT & HINT
-          card.innerHTML = `
-            <span class="type-tag">${item.type}</span>
-            <h3>${item.name}</h3>
-          `;
+          card.innerHTML = `<span class="type-tag">${item.type}</span><h3>${item.name}</h3>`;
         }
         grid.appendChild(card);
       });
@@ -223,7 +249,6 @@
       document.getElementById('modal-type').innerText = item.type;
       
       if (isCompleted) {
-        // MODAL UPDATE: Changed hint text
         document.getElementById('modal-hint').innerHTML = `<strong>Completed!</strong><br><br>"${item.type}" ${item.name}`;
         document.getElementById('photo-btn').innerText = "📸 Retake Photo";
       } else {
@@ -235,18 +260,14 @@
       document.getElementById('modal').style.display = 'flex';
     }
 
-    function closeModal() {
-      document.getElementById('modal').style.display = 'none';
-    }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    function triggerCamera() { document.getElementById('cameraInput').click(); }
 
-    function triggerCamera() {
-      document.getElementById('cameraInput').click();
-    }
-
-    // Compresses image to prevent phone browser from crashing when saving
     function handlePhoto(event) {
       const file = event.target.files[0];
       if (!file || !activeItemId) return;
+
+      document.getElementById('photo-btn').innerText = "⏳ Uploading...";
 
       const reader = new FileReader();
       reader.onload = function(e) {
@@ -261,48 +282,43 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           
-          // Save compressed image data
+          // Compress and upload to Firebase
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-          completedItems[activeItemId] = compressedDataUrl;
-          
-          // Save to phone storage
-          localStorage.setItem(`melaka_bingo_${teamName}`, JSON.stringify(completedItems));
-          
-          renderGrid();
-          closeModal();
+          db.ref('bingo_progress/' + teamName + '/' + activeItemId).set(compressedDataUrl)
+            .then(() => closeModal())
+            .catch(err => alert("Upload failed: " + err.message));
         }
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
 
-    // ADMIN FUNCTION: Generates 10 URLs with randomized boards
+    function promptAdmin() {
+      const pw = prompt("Enter Admin Password:");
+      if (pw === "Admin123") {
+        document.getElementById('admin-panel').style.display = "block";
+      } else if (pw !== null) {
+        alert("Incorrect password.");
+      }
+    }
+
     function generateTeamLinks() {
       const container = document.getElementById('admin-links-container');
       container.innerHTML = '';
-      
-      const baseUrl = window.location.href.split('?')[0]; // get pure link without current params
+      const baseUrl = window.location.href.split('?')[0];
 
       for (let i = 1; i <= 10; i++) {
-        // Shuffle an array of IDs
         let ids = baseItems.map(item => item.id);
         for (let j = ids.length - 1; j > 0; j--) {
           const k = Math.floor(Math.random() * (j + 1));
           [ids[j], ids[k]] = [ids[k], ids[j]];
         }
-        
         const teamUrl = `${baseUrl}?team=${i}&layout=${ids.join(',')}`;
-        
-        container.innerHTML += `
-          <a href="${teamUrl}" target="_blank">
-            <strong>Team ${i}:</strong><br>${teamUrl}
-          </a>
-        `;
+        container.innerHTML += `<a href="${teamUrl}" target="_blank"><strong>Team ${i}:</strong><br>${teamUrl}</a>`;
       }
     }
 
-    // Run on load
-    initializeApp();
+    window.onload = initializeApp;
   </script>
 </body>
 </html>
