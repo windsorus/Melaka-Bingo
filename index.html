@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Melaka Experience Bingo</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f5f0eb; margin: 0; padding: 16px; color: #333; }
+    h1 { text-align: center; color: #8b0000; margin-bottom: 5px; font-size: 24px; }
+    p.subtitle { text-align: center; color: #666; font-size: 14px; margin-top: 0; margin-bottom: 20px; }
+    
+    .bingo-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .bingo-card {
+      background: white;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      aspect-ratio: 1;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .bingo-card:hover { transform: translateY(-2px); }
+    .bingo-card.completed { border-color: #2e7d32; background-color: #e8f5e9; }
+    
+    .bingo-card h3 { font-size: 11px; margin: 6px 0 0 0; font-weight: 600; line-height: 1.2; }
+    .type-tag { font-size: 9px; text-transform: uppercase; background: #eee; padding: 2px 5px; border-radius: 4px; color: #555; }
+    
+    .status-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      font-size: 14px;
+      display: none;
+    }
+    .bingo-card.completed .status-badge { display: block; }
+
+    .photo-thumb {
+      width: 100%;
+      height: 50%;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-top: 4px;
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      position: relative;
+    }
+
+    .modal h2 { margin-top: 0; color: #8b0000; }
+    .modal p { color: #555; font-size: 14px; line-height: 1.4; }
+    
+    .btn {
+      display: inline-block;
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      background: #8b0000;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .btn-secondary { background: #555; }
+    .btn-gps { background: #1976d2; }
+    
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body>
+
+  <h1>MELAKA BINGO</h1>
+  <p class="subtitle">Tap a tile for hints/GPS. Take a photo to mark as completed!</p>
+
+  <div class="bingo-grid" id="grid"></div>
+
+  <!-- Modal for Flip Card details -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <span class="type-tag" id="modal-type">Type</span>
+      <h2 id="modal-title">Item Name</h2>
+      <p><strong>💡 Hint:</strong> <span id="modal-hint">Hint details...</span></p>
+      
+      <a id="modal-gps" class="btn btn-gps" target="_blank">📍 Open in Google Maps</a>
+      
+      <button class="btn" onclick="triggerCamera()">📸 Take Photo to Verify</button>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+
+      <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const items = [
+      { id: 1, name: "Klebang Coconut Shake", type: "Food", hint: "Look for the long queue near Klebang Beach! Cool, refreshing blend topped with vanilla ice cream.", lat: 2.2173, lng: 102.2023 },
+      { id: 2, name: "Stadthuys", type: "Sight", hint: "The iconic bright terracotta-red building built by the Dutch in 1650 in Red Square.", lat: 2.1942, lng: 102.2486 },
+      { id: 3, name: "Nyonya Laksa", type: "Food", hint: "Rich coconut curry noodle soup topped with fresh prawns, fish cakes, and hard-boiled egg.", lat: 2.1970, lng: 102.2450 },
+      { id: 4, name: "Jonker Walk", type: "Shop/Sight", hint: "Vibrant night market street packed with souvenirs, street food, and historic shophouses.", lat: 2.1963, lng: 102.2460 },
+      { id: 5, name: "Asam Pedas Fish", type: "Food", hint: "Tangy, spicy fish stew cooked with fresh tamarind, chili, and ladyfingers (okra).", lat: 2.1920, lng: 102.2500 },
+      { id: 6, name: "Christ Church", type: "Sight", hint: "An 18th-century Anglican church built with red bricks shipped directly from Holland.", lat: 2.1940, lng: 102.2488 },
+      { id: 7, name: "A Famosa", type: "Sight", hint: "Porta de Santiago - among the oldest European architectural remains in all of Asia.", lat: 2.1917, lng: 102.2503 },
+      { id: 8, name: "Satay Celup", type: "Food", hint: "Dip raw food skewers directly into a boiling pot of aromatic, rich peanut sauce.", lat: 2.2000, lng: 102.2510 },
+      { id: 9, name: "Chicken Rice Balls", type: "Food", hint: "Hainan chicken served with rice rolled into savory, compact bite-sized balls.", lat: 2.1955, lng: 102.2472 },
+      { id: 10, name: "Baba Nyonya Museum", type: "Sight", hint: "A preserved 19th-century Peranakan townhouse showcasing Straits Chinese heritage.", lat: 2.1958, lng: 102.2455 },
+      { id: 11, name: "Melaka River Cruise", type: "Sight", hint: "Board a river boat at Muara Jetty to see murals, heritage bridges, and street art.", lat: 2.1935, lng: 102.2480 },
+      { id: 12, name: "Kuih Pie Tee", type: "Food", hint: "Crispy pastry tart shells filled with savory shredded turnip, prawns, and sweet chili sauce.", lat: 2.1960, lng: 102.2465 },
+      { id: 13, name: "Dataran Pahlawan", type: "Shop", hint: "A modern multi-storey shopping mall right in the heart of Melaka's historic district.", lat: 2.1898, lng: 102.2515 },
+      { id: 14, name: "Maritime Museum", type: "Sight", hint: "A full-size replica of the historic Portuguese ship 'Flora de la Mar' standing 34m tall.", lat: 2.1910, lng: 102.2461 },
+      { id: 15, name: "St. Paul's Hill", type: "Sight", hint: "Climb the stairs from A Famosa to visit church ruins overlooking the Melaka Straits.", lat: 2.1925, lng: 102.2494 },
+      { id: 16, name: "Gula Melaka Cendol", type: "Food", hint: "Shaved ice loaded with pandan jelly, coconut milk, and dark smoky palm sugar syrup.", lat: 2.1962, lng: 102.2470 }
+    ];
+
+    let activeItemId = null;
+    const completedItems = {};
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+
+      items.forEach(item => {
+        const isCompleted = !!completedItems[item.id];
+        const card = document.createElement('div');
+        card.className = `bingo-card ${isCompleted ? 'completed' : ''}`;
+        card.onclick = () => openModal(item);
+
+        card.innerHTML = `
+          <span class="status-badge">✅</span>
+          <span class="type-tag">${item.type}</span>
+          <h3>${item.name}</h3>
+          ${isCompleted ? `<img src="${completedItems[item.id]}" class="photo-thumb"/>` : ''}
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openModal(item) {
+      activeItemId = item.id;
+      document.getElementById('modal-title').innerText = item.name;
+      document.getElementById('modal-type').innerText = item.type;
+      document.getElementById('modal-hint').innerText = item.hint;
+      document.getElementById('modal-gps').href = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
+
+    function triggerCamera() {
+      document.getElementById('cameraInput').click();
+    }
+
+    function handlePhoto(event) {
+      const file = event.target.files[0];
+      if (file && activeItemId) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          completedItems[activeItemId] = e.target.result;
+          renderGrid();
+          closeModal();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    renderGrid();
+  </script>
+</body>
+</html>
