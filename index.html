@@ -111,8 +111,23 @@
       margin-left: auto;
       margin-right: auto;
     }
-    .admin-links { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-    .admin-links a { background: white; padding: 10px; border-radius: 4px; font-size: 12px; word-break: break-all; color: #1976d2; text-decoration: none; border: 1px solid #ccc; }
+    
+    /* Updated Admin Links with QR Code Styling */
+    .admin-links { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
+    .team-link-box { 
+      background: white; 
+      padding: 15px; 
+      border-radius: 8px; 
+      border: 1px solid #ccc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .team-link-box h4 { margin: 0; color: #333; font-size: 18px; }
+    .team-link-box img { width: 150px; height: 150px; border: 4px solid #fff; outline: 1px solid #ddd; }
+    .team-link-box a { font-size: 11px; word-break: break-all; color: #1976d2; text-decoration: none; text-align: center; }
   </style>
 </head>
 <body>
@@ -145,7 +160,7 @@
   <div class="admin-panel" id="admin-panel">
     <h3>Admin Actions</h3>
     <button class="btn btn-danger" onclick="resetBoard()">⚠️ Reset Current Board</button>
-    <h4>Generate Team Links</h4>
+    <h4>Generate Team Links & QR Codes</h4>
     <button class="btn btn-secondary" onclick="generateTeamLinks()">Generate Shuffled Links</button>
     <div class="admin-links" id="admin-links-container"></div>
   </div>
@@ -173,27 +188,24 @@
       { id: 1, name: "Team Photo Challenge", type: "Activity", hint: "If you spot the other team, go over and take a photo with them with heart symbols/shape to complete this!" },
       { id: 2, name: "Melaka 0 Mile", type: "Sight", hint: "Find the zero mile marker denoting the center of the historic city.", lat: 2.1942850082722125, lng: 102.2486949878147 },
       { id: 3, name: "Nyonya Laksa", type: "Food", hint: "Rich coconut curry noodle soup topped with fresh prawns, fish cakes, and hard-boiled egg.", lat: 2.1970, lng: 102.2450 },
-      { id: 4, name: "Jonker Walk", type: "Shop/Sight", hint: "Vibrant night market street packed with souvenirs, street food, and historic shophouses.", lat: 2.1963, lng: 102.2460 },
+      { id: 4, name: "Jonker Center Stage", type: "Shop/Sight", hint: "Vibrant night market street packed with souvenirs, street food, and historic shophouses.", lat: 2.19787578153477, lng: 102.24549892631079 },
       { id: 5, name: "Mamee Jonker House", type: "Food/Shop", hint: "Visit the famous Mamee noodle concept store and cafe.", lat: 2.1960317106424743, lng: 102.24740812962035 },
       { id: 6, name: "World Heritage Mural", type: "Sight", hint: "Spot the large mural celebrating Melaka's UNESCO World Heritage status.", lat: 2.1955389567936208, lng: 102.25019931666675 },
       { id: 7, name: "A Famosa", type: "Sight", hint: "Porta de Santiago - among the oldest European architectural remains in all of Asia.", lat: 2.1917, lng: 102.2503 },
       { id: 8, name: "San Shu Gong", type: "Shop", hint: "A famous local product shop at the entrance of Jonker Walk.", lat: 2.1950752096203283, lng: 102.24838921458746 },
-      
-      // Multi-location item
       { id: 9, name: "Chicken Rice Balls", type: "Food", hint: "Hainan chicken served with rice rolled into savory balls. Choose Halal or Non-Halal below!", 
         locations: [
           { name: "Halal: Ee Ji Ban", lat: 2.188414370611107, lng: 102.25359281201293 },
           { name: "Non-Halal: Chung Wah", lat: 2.195194075811407, lng: 102.24845880521767 }
         ] 
       },
-      
       { id: 10, name: "Baba Nyonya Museum", type: "Sight", hint: "A preserved 19th-century Peranakan townhouse showcasing Straits Chinese heritage.", lat: 2.1958, lng: 102.2455 },
-      { id: 11, name: "Melaka River Cruise", type: "Sight", hint: "Board a river boat at Muara Jetty to see murals, heritage bridges, and street art.", lat: 2.1935, lng: 102.2480 },
+      { id: 11, name: "Melaka River", type: "Sight", hint: "Board a river boat at Muara Jetty to see murals, heritage bridges, and street art.", lat: 2.1935, lng: 102.2480 },
       { id: 12, name: "Kuih Pie Tee", type: "Food", hint: "Crispy pastry tart shells filled with savory shredded turnip, prawns, and sweet chili sauce.", lat: 2.1960, lng: 102.2465 },
       { id: 13, name: "Dataran Pahlawan", type: "Shop", hint: "A modern multi-storey shopping mall right in the heart of Melaka's historic district.", lat: 2.1898, lng: 102.2515 },
       { id: 14, name: "Maritime Museum", type: "Sight", hint: "A full-size replica of the historic Portuguese ship 'Flora de la Mar' standing 34m tall.", lat: 2.1910, lng: 102.2461 },
       { id: 15, name: "St. Paul's Hill", type: "Sight", hint: "Climb the stairs from A Famosa to visit church ruins overlooking the Melaka Straits.", lat: 2.1925, lng: 102.2494 },
-      { id: 16, name: "Bibik House Cendol", type: "Food", hint: "Enjoy an authentic Nyonya Cendol dessert.", lat: 2.1978383162018598, lng: 102.24540937132645 }
+      { id: 16, name: "Chendol", type: "Food", hint: "Enjoy an authentic Nyonya Cendol dessert.", lat: 2.1978383162018598, lng: 102.24540937132645 }
     ];
 
     let activeItems = [];
@@ -271,15 +283,12 @@
       gpsContainer.innerHTML = ''; 
       
       if (item.locations) {
-        // Multiple Locations (e.g. Halal & Non-Halal)
         item.locations.forEach(loc => {
           gpsContainer.innerHTML += `<a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}" target="_blank">📍 Maps - ${loc.name}</a>`;
         });
       } else if (item.lat && item.lng) {
-        // Single Location
         gpsContainer.innerHTML = `<a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank">📍 Open in Google Maps</a>`;
       }
-      // If no locations exist (like the Activity), the container remains empty.
 
       document.getElementById('modal').style.display = 'flex';
     }
@@ -334,6 +343,7 @@
       }
     }
 
+    // UPDATED FUNCTION: Generates links alongside dynamic QR codes
     function generateTeamLinks() {
       const container = document.getElementById('admin-links-container');
       container.innerHTML = '';
@@ -346,7 +356,17 @@
           [ids[j], ids[k]] = [ids[k], ids[j]];
         }
         const teamUrl = `${baseUrl}?team=${i}&layout=${ids.join(',')}`;
-        container.innerHTML += `<a href="${teamUrl}" target="_blank"><strong>Team ${i}:</strong><br>${teamUrl}</a>`;
+        
+        // Generate QR code using the goqr.me API
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(teamUrl)}`;
+        
+        container.innerHTML += `
+          <div class="team-link-box">
+            <h4>Team ${i}</h4>
+            <img src="${qrUrl}" alt="QR Code for Team ${i}" />
+            <a href="${teamUrl}" target="_blank">${teamUrl}</a>
+          </div>
+        `;
       }
     }
 
