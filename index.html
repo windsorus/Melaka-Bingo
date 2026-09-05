@@ -8,6 +8,7 @@
   <!-- Firebase Compat Libraries -->
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -185,6 +186,7 @@
     
     <!-- Compile Photos Button -->
     <button class="btn btn-compile" onclick="compileAllPhotos()">🖼️ View All Team Photos</button>
+    <button class="btn btn-compile" onclick="downloadAllPhotosZip()">📥 Download All Photos as ZIP</button>
     
     <button class="btn btn-danger" onclick="resetBoard()">⚠️ Reset Current Board</button>
     
@@ -247,10 +249,10 @@
       const team = urlParams.get('team');
       
       if (team) {
-        teamName = `team_${team}`;
-        document.getElementById('team-title').innerText = `TEAM ${team} BINGO`;
+        teamName = team_${team};
+        document.getElementById('team-title').innerText = TEAM ${team} BINGO;
       } else {
-        document.getElementById('team-title').innerText = `LOBBY BINGO`;
+        document.getElementById('team-title').innerText = LOBBY BINGO;
       }
 
       if (layout) {
@@ -281,13 +283,13 @@
       activeItems.forEach(item => {
         const isCompleted = !!completedItems[item.id];
         const card = document.createElement('div');
-        card.className = `bingo-card ${isCompleted ? 'completed' : ''}`;
+        card.className = bingo-card ${isCompleted ? 'completed' : ''};
         card.onclick = () => openModal(item, isCompleted);
 
         if (isCompleted) {
-          card.innerHTML = `<img src="${completedItems[item.id]}" class="photo-thumb-full"/>`;
+          card.innerHTML = <img src="${completedItems[item.id]}" class="photo-thumb-full"/>;
         } else {
-          card.innerHTML = `<span class="type-tag">${item.type}</span><h3>${item.name}</h3>`;
+          card.innerHTML = <span class="type-tag">${item.type}</span><h3>${item.name}</h3>;
         }
         grid.appendChild(card);
       });
@@ -300,7 +302,7 @@
       document.getElementById('modal-content-box').innerHTML = `
         <span class="type-tag" id="modal-type">${item.type}</span>
         <h2 id="modal-title">${item.name}</h2>
-        <p id="modal-hint">${isCompleted ? `<strong>Completed!</strong><br><br>"${item.type}" ${item.name}` : `<strong>💡 Hint:</strong> ${item.hint}`}</p>
+        <p id="modal-hint">${isCompleted ? <strong>Completed!</strong><br><br>"${item.type}" ${item.name} : <strong>💡 Hint:</strong> ${item.hint}}</p>
         <div id="modal-gps-container"></div>
         <button class="btn" id="photo-btn" onclick="triggerCamera()">${isCompleted ? '📸 Retake Photo' : '📸 Take Photo to Complete'}</button>
         <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
@@ -310,10 +312,10 @@
       const gpsContainer = document.getElementById('modal-gps-container');
       if (item.locations) {
         item.locations.forEach(loc => {
-          gpsContainer.innerHTML += `<a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}" target="_blank">📍 Maps - ${loc.name}</a>`;
+          gpsContainer.innerHTML += <a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}" target="_blank">📍 Maps - ${loc.name}</a>;
         });
       } else if (item.lat && item.lng) {
-        gpsContainer.innerHTML = `<a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank">📍 Open in Google Maps</a>`;
+        gpsContainer.innerHTML = <a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank">📍 Open in Google Maps</a>;
       }
 
       document.getElementById('modal').style.display = 'flex';
@@ -361,7 +363,7 @@
     }
 
     function resetBoard() {
-      const confirmReset = confirm(`Are you sure you want to completely clear the board for ${teamName.toUpperCase()}? This will delete all photos and cannot be undone.`);
+      const confirmReset = confirm(Are you sure you want to completely clear the board for ${teamName.toUpperCase()}? This will delete all photos and cannot be undone.);
       if (confirmReset) {
         db.ref('bingo_progress/' + teamName).remove()
           .then(() => alert("Board successfully reset!"))
@@ -390,7 +392,7 @@
           return;
         }
 
-        let galleryHTML = `<div class="gallery-grid">`;
+        let galleryHTML = <div class="gallery-grid">;
         let photoCount = 0;
 
         for (let tKey in allTeamsData) {
@@ -400,7 +402,7 @@
           for (let itemId in teamSubData) {
             const photoUrl = teamSubData[itemId];
             const matchedItem = baseItems.find(i => i.id == itemId);
-            const itemName = matchedItem ? matchedItem.name : `Item #${itemId}`;
+            const itemName = matchedItem ? matchedItem.name : Item #${itemId};
 
             galleryHTML += `
               <div class="gallery-item">
@@ -413,7 +415,7 @@
           }
         }
 
-        galleryHTML += `</div>`;
+        galleryHTML += </div>;
 
         if (photoCount === 0) {
           modalBox.innerHTML = `
@@ -437,6 +439,103 @@
       });
     }
 
+
+    // DOWNLOAD ALL PHOTOS AS A SINGLE ZIP FILE
+    async function downloadAllPhotosZip() {
+      const button = document.querySelector('button[onclick="downloadAllPhotosZip()"]');
+      const originalText = button ? button.innerText : '';
+
+      try {
+        if (button) {
+          button.disabled = true;
+          button.innerText = "⏳ Preparing ZIP...";
+        }
+
+        const snapshot = await db.ref('bingo_progress').once('value');
+        const allTeamsData = snapshot.val();
+
+        if (!allTeamsData) {
+          alert("No photos have been uploaded yet.");
+          return;
+        }
+
+        const zip = new JSZip();
+        let photoCount = 0;
+
+        for (const teamKey in allTeamsData) {
+          const teamData = allTeamsData[teamKey];
+          const teamFolderName = teamKey.replace(/^team_/, 'Team_').replace(/^lobby$/, 'Lobby');
+          const teamFolder = zip.folder(teamFolderName);
+
+          for (const itemId in teamData) {
+            const dataUrl = teamData[itemId];
+
+            if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+              console.warn(`Skipping ${teamKey}/${itemId}: not a valid image data URL.`);
+              continue;
+            }
+
+            const matchedItem = baseItems.find(i => i.id == itemId);
+            const rawName = matchedItem ? matchedItem.name : `Item_${itemId}`;
+            const safeName = rawName
+              .replace(/[\\/:*?"<>|]/g, '')
+              .replace(/\s+/g, '_')
+              .substring(0, 80);
+
+            const match = dataUrl.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/);
+            if (!match) {
+              console.warn(`Skipping ${teamKey}/${itemId}: unsupported image format.`);
+              continue;
+            }
+
+            let extension = match[1].toLowerCase();
+            if (extension === 'jpeg') extension = 'jpg';
+            if (extension === 'svg+xml') extension = 'svg';
+
+            const base64Data = match[2];
+            const paddedId = String(itemId).padStart(2, '0');
+            const fileName = `${paddedId}_${safeName}.${extension}`;
+
+            teamFolder.file(fileName, base64Data, { base64: true });
+            photoCount++;
+          }
+        }
+
+        if (photoCount === 0) {
+          alert("No valid photos were found.");
+          return;
+        }
+
+        if (button) button.innerText = `⏳ Zipping ${photoCount} photos...`;
+
+        const blob = await zip.generateAsync({
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 6 }
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const dateStamp = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = `Melaka_Bingo_Photos_${dateStamp}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+
+        alert(`Downloaded ${photoCount} photos in one ZIP file.`);
+      } catch (err) {
+        console.error(err);
+        alert("ZIP export failed: " + err.message);
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.innerText = originalText;
+        }
+      }
+    }
+
     function generateTeamLinks() {
       const container = document.getElementById('admin-links-container');
       container.innerHTML = '';
@@ -448,8 +547,8 @@
           const k = Math.floor(Math.random() * (j + 1));
           [ids[j], ids[k]] = [ids[k], ids[j]];
         }
-        const teamUrl = `${baseUrl}?team=${i}&layout=${ids.join(',')}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(teamUrl)}`;
+        const teamUrl = ${baseUrl}?team=${i}&layout=${ids.join(',')};
+        const qrUrl = https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(teamUrl)};
         
         container.innerHTML += `
           <div class="team-link-box">
