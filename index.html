@@ -8,7 +8,6 @@
   <!-- Firebase Compat Libraries -->
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -186,7 +185,6 @@
     
     <!-- Compile Photos Button -->
     <button class="btn btn-compile" onclick="compileAllPhotos()">🖼️ View All Team Photos</button>
-    <button class="btn btn-compile" onclick="downloadAllPhotosZip()">📥 Download All Photos as ZIP</button>
     
     <button class="btn btn-danger" onclick="resetBoard()">⚠️ Reset Current Board</button>
     
@@ -437,103 +435,6 @@
           <button class="btn btn-secondary" onclick="closeModal()">Close</button>
         `;
       });
-    }
-
-
-    // DOWNLOAD ALL PHOTOS AS A SINGLE ZIP FILE
-    async function downloadAllPhotosZip() {
-      const button = document.querySelector('button[onclick="downloadAllPhotosZip()"]');
-      const originalText = button ? button.innerText : '';
-
-      try {
-        if (button) {
-          button.disabled = true;
-          button.innerText = "⏳ Preparing ZIP...";
-        }
-
-        const snapshot = await db.ref('bingo_progress').once('value');
-        const allTeamsData = snapshot.val();
-
-        if (!allTeamsData) {
-          alert("No photos have been uploaded yet.");
-          return;
-        }
-
-        const zip = new JSZip();
-        let photoCount = 0;
-
-        for (const teamKey in allTeamsData) {
-          const teamData = allTeamsData[teamKey];
-          const teamFolderName = teamKey.replace(/^team_/, 'Team_').replace(/^lobby$/, 'Lobby');
-          const teamFolder = zip.folder(teamFolderName);
-
-          for (const itemId in teamData) {
-            const dataUrl = teamData[itemId];
-
-            if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
-              console.warn(`Skipping ${teamKey}/${itemId}: not a valid image data URL.`);
-              continue;
-            }
-
-            const matchedItem = baseItems.find(i => i.id == itemId);
-            const rawName = matchedItem ? matchedItem.name : `Item_${itemId}`;
-            const safeName = rawName
-              .replace(/[\\/:*?"<>|]/g, '')
-              .replace(/\s+/g, '_')
-              .substring(0, 80);
-
-            const match = dataUrl.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/);
-            if (!match) {
-              console.warn(`Skipping ${teamKey}/${itemId}: unsupported image format.`);
-              continue;
-            }
-
-            let extension = match[1].toLowerCase();
-            if (extension === 'jpeg') extension = 'jpg';
-            if (extension === 'svg+xml') extension = 'svg';
-
-            const base64Data = match[2];
-            const paddedId = String(itemId).padStart(2, '0');
-            const fileName = `${paddedId}_${safeName}.${extension}`;
-
-            teamFolder.file(fileName, base64Data, { base64: true });
-            photoCount++;
-          }
-        }
-
-        if (photoCount === 0) {
-          alert("No valid photos were found.");
-          return;
-        }
-
-        if (button) button.innerText = `⏳ Zipping ${photoCount} photos...`;
-
-        const blob = await zip.generateAsync({
-          type: 'blob',
-          compression: 'DEFLATE',
-          compressionOptions: { level: 6 }
-        });
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const dateStamp = new Date().toISOString().slice(0, 10);
-        link.href = url;
-        link.download = `Melaka_Bingo_Photos_${dateStamp}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
-
-        alert(`Downloaded ${photoCount} photos in one ZIP file.`);
-      } catch (err) {
-        console.error(err);
-        alert("ZIP export failed: " + err.message);
-      } finally {
-        if (button) {
-          button.disabled = false;
-          button.innerText = originalText;
-        }
-      }
     }
 
     function generateTeamLinks() {
