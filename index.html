@@ -247,10 +247,10 @@
       const team = urlParams.get('team');
       
       if (team) {
-        teamName = team_${team};
-        document.getElementById('team-title').innerText = TEAM ${team} BINGO;
+        teamName = `team_${team}`;
+        document.getElementById('team-title').innerText = `TEAM ${team} BINGO`;
       } else {
-        document.getElementById('team-title').innerText = LOBBY BINGO;
+        document.getElementById('team-title').innerText = `LOBBY BINGO`;
       }
 
       if (layout) {
@@ -281,13 +281,13 @@
       activeItems.forEach(item => {
         const isCompleted = !!completedItems[item.id];
         const card = document.createElement('div');
-        card.className = bingo-card ${isCompleted ? 'completed' : ''};
+        card.className = `bingo-card ${isCompleted ? 'completed' : ''}`;
         card.onclick = () => openModal(item, isCompleted);
 
         if (isCompleted) {
-          card.innerHTML = <img src="${completedItems[item.id]}" class="photo-thumb-full"/>;
+          card.innerHTML = `<img src="${completedItems[item.id]}" class="photo-thumb-full"/>`;
         } else {
-          card.innerHTML = <span class="type-tag">${item.type}</span><h3>${item.name}</h3>;
+          card.innerHTML = `<span class="type-tag">${item.type}</span><h3>${item.name}</h3>`;
         }
         grid.appendChild(card);
       });
@@ -300,7 +300,7 @@
       document.getElementById('modal-content-box').innerHTML = `
         <span class="type-tag" id="modal-type">${item.type}</span>
         <h2 id="modal-title">${item.name}</h2>
-        <p id="modal-hint">${isCompleted ? <strong>Completed!</strong><br><br>"${item.type}" ${item.name} : <strong>💡 Hint:</strong> ${item.hint}}</p>
+        <p id="modal-hint">${isCompleted ? `<strong>Completed!</strong><br><br>"${item.type}" ${item.name}` : `<strong>💡 Hint:</strong> ${item.hint}`}</p>
         <div id="modal-gps-container"></div>
         <button class="btn" id="photo-btn" onclick="triggerCamera()">${isCompleted ? '📸 Retake Photo' : '📸 Take Photo to Complete'}</button>
         <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
@@ -310,10 +310,10 @@
       const gpsContainer = document.getElementById('modal-gps-container');
       if (item.locations) {
         item.locations.forEach(loc => {
-          gpsContainer.innerHTML += <a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}" target="_blank">📍 Maps - ${loc.name}</a>;
+          gpsContainer.innerHTML += `<a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}" target="_blank">📍 Maps - ${loc.name}</a>`;
         });
       } else if (item.lat && item.lng) {
-        gpsContainer.innerHTML = <a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank">📍 Open in Google Maps</a>;
+        gpsContainer.innerHTML = `<a class="btn btn-gps" href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank">📍 Open in Google Maps</a>`;
       }
 
       document.getElementById('modal').style.display = 'flex';
@@ -361,7 +361,7 @@
     }
 
     function resetBoard() {
-      const confirmReset = confirm(Are you sure you want to completely clear the board for ${teamName.toUpperCase()}? This will delete all photos and cannot be undone.);
+      const confirmReset = confirm(`Are you sure you want to completely clear the board for ${teamName.toUpperCase()}? This will delete all photos and cannot be undone.`);
       if (confirmReset) {
         db.ref('bingo_progress/' + teamName).remove()
           .then(() => alert("Board successfully reset!"))
@@ -390,7 +390,7 @@
           return;
         }
 
-        let galleryHTML = <div class="gallery-grid">;
+        let galleryHTML = `<div class="gallery-grid">`;
         let photoCount = 0;
 
         for (let tKey in allTeamsData) {
@@ -400,7 +400,7 @@
           for (let itemId in teamSubData) {
             const photoUrl = teamSubData[itemId];
             const matchedItem = baseItems.find(i => i.id == itemId);
-            const itemName = matchedItem ? matchedItem.name : Item #${itemId};
+            const itemName = matchedItem ? matchedItem.name : `Item #${itemId}`;
 
             galleryHTML += `
               <div class="gallery-item">
@@ -413,7 +413,7 @@
           }
         }
 
-        galleryHTML += </div>;
+        galleryHTML += `</div>`;
 
         if (photoCount === 0) {
           modalBox.innerHTML = `
@@ -448,8 +448,8 @@
           const k = Math.floor(Math.random() * (j + 1));
           [ids[j], ids[k]] = [ids[k], ids[j]];
         }
-        const teamUrl = ${baseUrl}?team=${i}&layout=${ids.join(',')};
-        const qrUrl = https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(teamUrl)};
+        const teamUrl = `${baseUrl}?team=${i}&layout=${ids.join(',')}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(teamUrl)}`;
         
         container.innerHTML += `
           <div class="team-link-box">
