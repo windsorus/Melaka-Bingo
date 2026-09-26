@@ -8,6 +8,9 @@
   <!-- Firebase Compat Libraries -->
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  
+  <!-- JSZip Library for Bulk Downloading Photos -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -95,6 +98,7 @@
     }
     .btn-secondary { background: #555; }
     .btn-gps { background: #1976d2; margin-bottom: 5px; }
+    .btn-download { background: #1976d2; margin-bottom: 10px; }
     .btn-danger { background: #d32f2f; margin-bottom: 10px; }
     .btn-compile { background: #2e7d32; margin-bottom: 10px; }
     
@@ -186,6 +190,9 @@
     <!-- Compile Photos Button -->
     <button class="btn btn-compile" onclick="compileAllPhotos()">🖼️ View All Team Photos</button>
     
+    <!-- NEW ZIP DOWNLOAD BUTTON -->
+    <button class="btn btn-download" id="download-zip-btn" onclick="downloadAllPhotosAsZip()">💾 Download All Photos as ZIP</button>
+    
     <button class="btn btn-danger" onclick="resetBoard()">⚠️ Reset Current Board</button>
     
     <h4>Generate Team Links & QR Codes</h4>
@@ -195,7 +202,7 @@
 
   <script>
     // =========================================================================
-    // FIREBASE CONFIGURATION
+    // FIREBASE CONFIGURATION (PASTE YOUR KEYS HERE)
     // =========================================================================
     const firebaseConfig = {
       apiKey: "AIzaSyCMMoK-OyrpH3Byu_fthdK7MivGkgcIKVQ",
@@ -325,22 +332,32 @@
       const file = event.target.files[0];
       if (!file || !activeItemId) return;
 
-      document.getElementById('photo-btn').innerText = "⏳ Uploading...";
+      document.getElementById('photo-btn').innerText = "⏳ Processing Photo...";
 
       const reader = new FileReader();
       reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 500;
-          const scaleSize = MAX_WIDTH / img.width;
-          canvas.width = MAX_WIDTH;
+          
+          // UPGRADED RESOLUTION: Max width increased from 500 to 1000px
+          const MAX_WIDTH = 1000;
+          let scaleSize = 1;
+          
+          if (img.width > MAX_WIDTH) {
+            scaleSize = MAX_WIDTH / img.width;
+          }
+          
+          canvas.width = img.width * scaleSize;
           canvas.height = img.height * scaleSize;
           
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          // UPGRADED QUALITY: Set to 85% instead of 60%
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          
+          document.getElementById('photo-btn').innerText = "⏳ Uploading...";
           db.ref('bingo_progress/' + teamName + '/' + activeItemId).set(compressedDataUrl)
             .then(() => closeModal())
             .catch(err => alert("Upload failed: " + err.message));
@@ -366,6 +383,60 @@
           .then(() => alert("Board successfully reset!"))
           .catch(err => alert("Error resetting board: " + err.message));
       }
+    }
+
+    // ZIP DOWNLOAD FUNCTION
+    function downloadAllPhotosAsZip() {
+      const btn = document.getElementById('download-zip-btn');
+      btn.innerText = "⏳ Zipping Folders (Please wait)...";
+      
+      db.ref('bingo_progress').once('value').then(async (snapshot) => {
+        const allTeamsData = snapshot.val();
+        if (!allTeamsData) {
+          alert("No photos found in the database yet!");
+          btn.innerText = "💾 Download All Photos as ZIP";
+          return;
+        }
+
+        const zip = new JSZip();
+
+        // Loop through teams
+        for (let tKey in allTeamsData) {
+          const teamSubData = allTeamsData[tKey];
+          const teamDisplayName = tKey.replace('_', ' ').toUpperCase();
+          const teamFolder = zip.folder(teamDisplayName); // Create folder per team
+
+          // Loop through each photo
+          for (let itemId in teamSubData) {
+            const photoUrl = teamSubData[itemId];
+            const matchedItem = baseItems.find(i => i.id == itemId);
+            // Clean up the name for safe file saving
+            const itemName = matchedItem ? matchedItem.name.replace(/[^a-zA-Z0-9 ]/g, "") : `Item_${itemId}`;
+            
+            // Extract pure base64 data removing the "data:image/jpeg;base64," prefix
+            const base64Data = photoUrl.split(',')[1];
+            if (base64Data) {
+              teamFolder.file(`${itemName}.jpg`, base64Data, {base64: true});
+            }
+          }
+        }
+
+        // Generate the ZIP file and trigger browser download
+        const zipBlob = await zip.generateAsync({type:"blob"});
+        const downloadUrl = window.URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = "Melaka_Bingo_Photos.zip";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+        
+        btn.innerText = "💾 Download All Photos as ZIP";
+      }).catch(err => {
+        alert("Error downloading photos: " + err.message);
+        btn.innerText = "💾 Download All Photos as ZIP";
+      });
     }
 
     function compileAllPhotos() {
